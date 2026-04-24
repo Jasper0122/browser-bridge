@@ -1,0 +1,26 @@
+{
+  "name": "browser-bridge-extension",
+  "displayName": "Browser Bridge",
+  "version": "0.1.0",
+  "description": "Connects your real browser to local Claude Code via MCP",
+  "scripts": {
+    "dev": "plasmo dev",
+    "build": "plasmo build"
+  },
+  "dependencies": {
+    "plasmo": "^0.90.5",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "@types/node": "^22.5.5",
+    "@types/react": "18.2.0",
+    "@types/react-dom": "18.2.0",
+    "typescript": "^5.5.4"
+  },
+  "manifest": {
+    "host_permissions": ["<all_urls>"],
+    "permissions": ["debugger", "tabs", "storage", "alarms", "activeTab", "scripting", "management"]
+  }
+}

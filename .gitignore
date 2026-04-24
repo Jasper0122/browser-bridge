@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+extension/node_modules/
+mcp-server/node_modules/
+
+# Plasmo build cache
+extension/.plasmo/
+
+# Plasmo build cache (regenerated on build)
+# Note: extension/build/ and mcp-server/dist/ are committed so users don't need to build
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/

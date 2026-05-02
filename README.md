@@ -2,88 +2,178 @@
 
 # Browser Bridge
 
-**Give Claude Code eyes and hands inside your real Chrome browser.**
+### MCP tools that connect coding agents to your real Chrome browser
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Chrome MV3](https://img.shields.io/badge/Chrome-MV3-4285F4?style=flat-square&logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/mv3/)
-[![MCP](https://img.shields.io/badge/Claude_Code-MCP-blueviolet?style=flat-square)](https://docs.anthropic.com/en/docs/claude-code/mcp)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+[![MCP](https://img.shields.io/badge/MCP-Compatible-blueviolet?style=flat-square)](https://modelcontextprotocol.io/)
+[![Node](https://img.shields.io/badge/Node.js-20%2B-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
-[Features](#features) · [Comparison](#how-it-compares) · [Install](#installation) · [Tools](#tool-reference) · [Extension Debugging](#extension-development)
+**Give MCP-compatible coding agents screenshots, DOM access, JavaScript execution, console logs, network traces, and Chrome extension debugging inside the Chrome session you already use.**
+
+[Quick Start](#quick-start) |
+[Supported Agents](#supported-coding-agents) |
+[Why](#why-browser-bridge) |
+[Tools](#tool-reference) |
+[Extension Debugging](#chrome-extension-debugging) |
+[Architecture](#architecture)
 
 </div>
 
 ---
 
-Most browser automation tools spin up a **separate sandboxed browser** — meaning no saved logins, no cookies, no extensions, no existing tabs. Browser Bridge is different.
+Most browser automation tools launch a separate browser profile. That means no saved login, no existing tabs, no cookies, and no installed extensions.
 
-It connects Claude Code directly to the Chrome window already open on your screen. Screenshots, JS execution, live console logs, network traffic, DOM mutations, and a full suite of Chrome extension debugging tools — all through 18 native MCP tools, no CLI wrappers needed.
+**Browser Bridge attaches to your real Chrome window.** It exposes 18 MCP tools through a small local Node.js server and a Chrome MV3 extension, so your coding agent can inspect and operate the browser you are already using.
 
+```text
+MCP client
+  -> Browser Bridge MCP server (Node.js / stdio)
+  -> Chrome extension (WebSocket on 127.0.0.1:9988)
+  -> Your Chrome tabs and extension contexts
 ```
-Claude Code  ←→  MCP Server (Node.js, stdio)  ←→  Chrome Extension (WebSocket :9988)  ←→  Your Chrome
-```
 
----
+## What You Can Do
 
-## Why Browser Bridge
-
-**Your browser, not a sandboxed copy.** Already logged into GitHub, Notion, your internal dashboard? Claude works in that exact session. No re-authentication, no cookie-import gymnastics.
-
-**The only AI tool with Chrome extension debugging.** Nine dedicated tools let Claude read service worker logs, execute code in SW contexts, inspect `chrome.storage`, send messages between extensions, and reload extensions — all without opening DevTools manually.
-
-**Full observability stack.** Beyond just screenshots, Claude can stream console output, capture XHR/fetch requests, observe DOM mutations in real time, and surface unhandled JS errors — making it genuinely useful for debugging, not just clicking around.
-
----
+- Capture screenshots from the active tab
+- Read a compact DOM tree and selectors for interactive elements
+- Execute JavaScript in the current page
+- Inspect console logs, JavaScript errors, and network requests
+- Observe DOM mutations after page load
+- List and switch Chrome tabs
+- Debug Chrome extension service workers and background pages
+- Read/write `chrome.storage`, send runtime messages, and reload extensions
 
 ## How It Compares
 
-| Capability | **Browser Bridge** | Playwright MCP | browser-use | dev-browser | Stagehand |
-|---|:---:|:---:|:---:|:---:|:---:|
-| Claude Code MCP native | ✅ | ✅ | ✅ | ❌ CLI only | ❌ SDK only |
-| Uses your real Chrome + sessions | ✅ | ⚠️ profile | ⚠️ profile | ⚠️ remote port | ❌ |
-| Screenshot | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Execute JavaScript in page | ✅ | ✅ | ❌ | ✅ sandboxed | ✅ |
-| Console log streaming | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Network request capture | ✅ | ✅ | ❌ | ❌ | ❌ |
-| DOM mutation observer | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Chrome extension debugging** | ✅ 9 tools | ❌ | ❌ | ❌ | ❌ |
-| Tab list + switching | ✅ | ✅ | ❌ | ❌ | ❌ |
-| No separate browser install | ✅ | ❌ Playwright | ❌ Chromium | ❌ Playwright | ❌ Browserbase |
-| Zero config — attach to running Chrome | ✅ | ❌ | ❌ | ⚠️ | ❌ |
+| Capability | **Browser Bridge** | Playwright MCP | browser-use | Stagehand |
+| --- | :---: | :---: | :---: | :---: |
+| MCP-native tools | ✅ | ✅ | ⚠️ | ❌ |
+| Uses your real Chrome session | ✅ | ⚠️ | ⚠️ | ❌ |
+| Screenshot | ✅ | ✅ | ✅ | ✅ |
+| DOM inspection | ✅ | ✅ | ⚠️ | ✅ |
+| Execute JavaScript | ✅ | ✅ | ❌ | ✅ |
+| Console log capture | ✅ | ✅ | ❌ | ❌ |
+| Network request capture | ✅ | ✅ | ❌ | ❌ |
+| DOM mutation observer | ✅ | ❌ | ❌ | ❌ |
+| Tab list and switching | ✅ | ✅ | ❌ | ❌ |
+| Chrome extension debugging | ✅ | ❌ | ❌ | ❌ |
 
-> ⚠️ = partial support with extra setup steps
+> ✅ supported · ⚠️ partial or extra setup · ❌ not supported
 
----
+## Quick Start
 
-## Features
+**Requirements**
 
-### Page Interaction
-- **Screenshot** any tab — Claude sees the page as a PNG
-- **DOM tree** — compact readable structure with CSS selectors for every interactive element
-- **Execute JavaScript** — run arbitrary code, get return value, console output, and recent network in one call
-- **Network capture** — XHR/fetch requests with method, status, URL, response body
-- **Console streaming** — log/warn/error/info with timestamps; pass `since` for incremental polling
-- **JS error tracking** — uncaught exceptions and unhandled promise rejections
-- **DOM mutations** — childList and attribute changes as they happen; pass `since` for diffs
-- **Tab management** — list all open tabs, switch active tab by ID
+- Node.js 20+
+- Google Chrome
+- An MCP-capable coding client, such as Claude Code
 
-### Chrome Extension Development
-Nine tools purpose-built for extension authors:
-- List all extension service workers and background pages
-- Stream console logs and JS errors from extension SWs
-- Execute JavaScript inside a service worker context (async/await supported)
-- Read and write `chrome.storage.local` / `.sync`
-- Send `chrome.runtime.sendMessage` and capture the response
-- Reload an extension without touching DevTools
-- Open extension popups as pinned tabs so they don't close on focus loss
+### 1. Install
 
----
+```bash
+git clone https://github.com/Jasper0122/browser-bridge.git
+cd browser-bridge
+node install.mjs
+```
 
-## Installation
+The installer builds the MCP server and Chrome extension, registers Claude Code when the `claude` CLI is available, and writes a reusable MCP config snippet to:
 
-**Prerequisites:** Node.js 20+, Chrome (any recent version), Claude Code CLI
+```text
+.browser-bridge/mcp-config.json
+```
 
-### 1 — Clone and build the MCP server
+### 2. Load the Chrome extension
+
+Chrome requires one manual confirmation for unpacked extensions:
+
+1. Open `chrome://extensions/`
+2. Enable **Developer mode**
+3. Click **Load unpacked**
+4. Select `browser-bridge/extension/build/chrome-mv3-prod/`
+
+### 3. Verify
+
+Open any normal `https://` page in Chrome, then ask your MCP client:
+
+```text
+Take a screenshot of my current browser tab.
+```
+
+If the bridge is connected, the client should receive a PNG screenshot of your active tab.
+
+## Why Browser Bridge
+
+| Need | Browser Bridge approach |
+| --- | --- |
+| Work inside logged-in websites | Uses your real Chrome session and current tabs |
+| Debug frontend issues | Captures screenshots, DOM, console logs, network calls, JS errors, and mutations |
+| Control browser state from an agent | Provides native MCP tools instead of shell wrappers |
+| Debug Chrome extensions | Includes dedicated service worker, storage, runtime message, and reload tools |
+| Avoid managing a separate browser | No Playwright browser install or disposable profile required |
+
+## Supported Coding Agents
+
+Browser Bridge is not tied to a single LLM product. It exposes a standard MCP server, so any coding agent with MCP support can connect to it.
+
+| Support | Agents |
+| --- | --- |
+| ✅ Direct MCP setup | Claude Code, Cursor, Windsurf, Cline, Roo Code |
+| ⚠️ Version/config dependent | Codex, Continue, other MCP-compatible agents |
+
+Claude Code can be auto-registered by `node install.mjs`. Other clients can use the generated `.browser-bridge/mcp-config.json`. Codex support depends on preconfiguring Browser Bridge as an MCP server or plugin before the session starts.
+
+## Tool Reference
+
+Browser Bridge registers all tools with the `browser_` prefix.
+
+### Page Tools
+
+| Tool | Description |
+| --- | --- |
+| `browser_screenshot` | Capture a PNG screenshot of the active tab |
+| `browser_get_dom` | Return compact DOM text and selectors for interactive elements |
+| `browser_execute` | Run JavaScript in the active tab and return result, logs, errors, and recent network |
+| `browser_get_network` | Return recent XHR/fetch requests |
+| `browser_get_logs` | Return console output, optionally since a Unix timestamp in ms |
+| `browser_get_errors` | Return uncaught errors and unhandled promise rejections |
+| `browser_get_mutations` | Return observed DOM mutations, optionally since a timestamp |
+| `browser_list_tabs` | List open tabs with IDs, titles, URLs, and active state |
+| `browser_switch_tab` | Activate a tab by ID |
+
+### Chrome Extension Tools
+
+| Tool | Description |
+| --- | --- |
+| `browser_list_extension_targets` | List extension service workers and background pages |
+| `browser_get_sw_logs` | Read console logs from an extension service worker or page |
+| `browser_get_sw_errors` | Read JavaScript errors from an extension service worker |
+| `browser_execute_in_sw` | Execute JavaScript inside a service worker context |
+| `browser_get_extension_storage` | Read `chrome.storage.local` or `chrome.storage.sync` |
+| `browser_set_extension_storage` | Write or clear extension storage |
+| `browser_reload_extension` | Reload an extension through `chrome.management` |
+| `browser_send_message` | Send `chrome.runtime.sendMessage` to an extension |
+| `browser_open_popup` | Open an extension popup as a pinned tab |
+
+## Chrome Extension Debugging
+
+Browser Bridge is especially useful when building Chrome extensions. A typical loop:
+
+```text
+1. browser_list_extension_targets
+2. browser_get_sw_logs
+3. browser_execute_in_sw
+4. browser_get_extension_storage
+5. browser_send_message
+6. browser_reload_extension
+```
+
+This lets your coding agent inspect service worker state, test message handlers, verify storage, and reload the extension without manually opening DevTools.
+
+## Manual Setup
+
+Use this if you do not want the installer to register anything automatically.
 
 ```bash
 git clone https://github.com/Jasper0122/browser-bridge.git
@@ -92,145 +182,78 @@ npm install
 npm run build
 ```
 
-### 2 — Register with Claude Code
+Register the MCP server with your client. For Claude Code:
 
 ```bash
-# macOS / Linux
 claude mcp add browser-bridge node /absolute/path/to/browser-bridge/mcp-server/dist/index.js
-
-# Windows
-claude mcp add browser-bridge node "C:\path\to\browser-bridge\mcp-server\dist\index.js"
-```
-
-Verify:
-```bash
 claude mcp list
 ```
 
-### 3 — Load the Chrome extension
+For other MCP clients, use:
 
-**Option A — pre-built (fastest)**
-
-1. Open Chrome → `chrome://extensions/`
-2. Enable **Developer mode**
-3. Click **Load unpacked**
-4. Select `browser-bridge/extension/build/chrome-mv3-prod/`
-
-**Option B — build from source**
-
-```bash
-cd browser-bridge/extension
-npm install
-npm run build   # requires Node 20+
-```
-Then load `extension/build/chrome-mv3-prod/` as above.
-
-### 4 — Verify
-
-Open any project in Claude Code and ask:
-
-```
-Take a screenshot of my current browser tab.
+```json
+{
+  "mcpServers": {
+    "browser-bridge": {
+      "command": "node",
+      "args": ["/absolute/path/to/browser-bridge/mcp-server/dist/index.js"]
+    }
+  }
+}
 ```
 
-You should see a PNG of whatever Chrome tab is active. Done.
+Then load the extension from:
 
----
-
-## Tool Reference
-
-All 18 tools are registered as `browser_*` in Claude Code once the MCP server is connected.
-
-<details>
-<summary><strong>Page tools (9)</strong></summary>
-
-| Tool | Description |
-|------|-------------|
-| `browser_screenshot` | PNG screenshot of the active tab |
-| `browser_get_dom` | Compact DOM tree + CSS selectors for up to 30 interactive elements |
-| `browser_execute` | Run JavaScript; returns value, console output, errors, recent network |
-| `browser_get_network` | Last 20 XHR/fetch requests (method, status, URL, body) |
-| `browser_get_logs` | Console output; pass `since` (Unix ms) for incremental polling |
-| `browser_get_errors` | Uncaught JS errors and unhandled rejections with stack traces |
-| `browser_get_mutations` | DOM mutations; pass `since` for delta since last check |
-| `browser_list_tabs` | All open tabs with IDs, titles, URLs |
-| `browser_switch_tab` | Activate a tab by ID |
-
-</details>
-
-<details>
-<summary><strong>Extension development tools (9)</strong></summary>
-
-| Tool | Description |
-|------|-------------|
-| `browser_list_extension_targets` | List all extension service workers and background pages |
-| `browser_get_sw_logs` | Console logs from an extension service worker |
-| `browser_get_sw_errors` | JS errors from an extension service worker |
-| `browser_execute_in_sw` | Execute JavaScript in a service worker context |
-| `browser_get_extension_storage` | Read `chrome.storage.local` or `.sync` |
-| `browser_set_extension_storage` | Write key-value pairs or clear a storage area |
-| `browser_reload_extension` | Reload an extension via `chrome.management` |
-| `browser_send_message` | Send `chrome.runtime.sendMessage` and return the response |
-| `browser_open_popup` | Open an extension popup as a pinned tab |
-
-**Workflow:** `browser_list_extension_targets` → get `target_id` → use the other tools
-
-</details>
-
----
-
-## Extension Development
-
-Browser Bridge is the only AI tool purpose-built for Chrome extension authors. Typical workflow:
-
+```text
+browser-bridge/extension/build/chrome-mv3-prod/
 ```
-1. browser_list_extension_targets   → find your extension's service worker target ID
-2. browser_get_sw_logs              → see what's being logged
-3. browser_execute_in_sw            → inspect or mutate internal state
-4. browser_get_extension_storage    → verify storage contents
-5. browser_send_message             → test your message handler
-6. browser_reload_extension         → reload and repeat
-```
-
-Claude can run this entire loop autonomously — no DevTools window required.
-
----
 
 ## Known Limitations
 
-**Cross-extension CDP access is blocked by Chrome.**
-`get_sw_logs`, `execute_in_sw`, `get_extension_storage`, and `set_extension_storage` can only target Browser Bridge's own contexts. For other extensions, use `browser_send_message` if the target exposes `onMessageExternal`.
-
-**`chrome://` and `chrome-extension://` tabs.**
-`screenshot`, `get_dom`, and `execute` require an `http://` or `https://` tab. Chrome's security model blocks CDP access to browser-internal pages.
-
-**MV3 service workers go idle.**
-Chrome terminates MV3 service workers after ~30 seconds of inactivity. If a target ID stops responding, call `browser_list_extension_targets` again to get the new one.
-
----
+- `browser_screenshot`, `browser_get_dom`, and `browser_execute` work on normal `http://` and `https://` pages. Chrome blocks these operations on `chrome://` and most `chrome-extension://` pages.
+- Chrome MV3 service workers can go idle. If a target disappears, call `browser_list_extension_targets` again.
+- Some cross-extension debugging operations are restricted by Chrome. For third-party extensions, `browser_send_message` requires the target extension to expose a compatible message handler.
+- The Chrome extension currently needs to be loaded manually as an unpacked extension.
 
 ## Architecture
 
-```
-┌─────────────────┐   stdio/MCP   ┌──────────────────────┐
-│   Claude Code   │ ◄───────────► │  MCP Server (Node.js) │
-└─────────────────┘               └──────────┬───────────┘
-                                             │ WebSocket :9988
-                                  ┌──────────▼───────────┐
-                                  │  Chrome Extension     │
-                                  │  (MV3, CDP)           │
-                                  └──────────┬───────────┘
-                                             │ Chrome DevTools Protocol
-                                  ┌──────────▼───────────┐
-                                  │  Your Chrome Browser  │
-                                  │  (tabs, extensions,   │
-                                  │   sessions, storage)  │
-                                  └──────────────────────┘
+```text
+MCP client
+  |
+  | stdio / MCP
+  v
+Browser Bridge MCP server
+  |
+  | WebSocket ws://127.0.0.1:9988
+  v
+Browser Bridge Chrome extension
+  |
+  | Chrome extension APIs + Chrome DevTools Protocol
+  v
+Your Chrome browser
 ```
 
-The MCP server speaks the MCP protocol to Claude Code over stdio. It exposes a WebSocket server on `127.0.0.1:9988` that the Chrome extension connects to. Every tool call becomes a JSON message round-trip through that WebSocket to the extension, which uses the Chrome DevTools Protocol to carry out the operation and return the result.
+The MCP server exposes tools over stdio. The Chrome extension connects back to the local WebSocket server and performs browser operations through Chrome extension APIs and the Chrome DevTools Protocol.
 
----
+## Development
+
+```bash
+# MCP server
+cd mcp-server
+npm install
+npm run build
+
+# Chrome extension
+cd ../extension
+npm install
+npm run build
+```
+
+The extension build output is:
+
+```text
+extension/build/chrome-mv3-prod/
+```
 
 ## License
 
